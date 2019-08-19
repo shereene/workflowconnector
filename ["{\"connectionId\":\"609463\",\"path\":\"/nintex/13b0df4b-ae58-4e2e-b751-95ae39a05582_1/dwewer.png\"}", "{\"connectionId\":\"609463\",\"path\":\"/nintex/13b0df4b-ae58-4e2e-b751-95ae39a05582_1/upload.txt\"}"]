@@ -1,0 +1,466 @@
+
+    UploadFileFromPM: function (data, callback) {
+        //fileId,CaseNumber,userEmail
+        organizationId = ''
+        resData = data
+        var AdminAuth = "Bearer " + process.env.processmaker_admin_token;
+        var ProcessMakerURL = process.env.processmaker_host + '/api/1.0/users?filter=' + data.userEmail;
+
+        request.get({ url: ProcessMakerURL, headers: { "Authorization": AdminAuth } }, (err, _httpResponse, body) => {
+            if (err) {
+                return callback({ success: false, data: err });
+            } else {
+                var ProcessMakerUser = JSON.parse(body);
+                if (ProcessMakerUser.data.length == 0) {
+                    return callback({ success: false, data: 'user not found' });
+                }
+
+                ProcessMakerUser = ProcessMakerUser.data[0];
+
+                //Generate user API Token
+                var ProcessMakerGenerateTokenURL = process.env.processmaker_host + '/api/1.0/users/' + ProcessMakerUser.id + "/tokens";
+                var RequestBody = {
+                    name: "Integration Service"
+                };
+                request.post({ url: ProcessMakerGenerateTokenURL, headers: { "Authorization": AdminAuth }, form: RequestBody }, (err, _httpResponse, body) => {
+                    if (err) {
+                        return callback({ success: false, data: err });
+                    } else {
+                        PM_User_API_Token = JSON.parse(body);
+                        PM_User_API_Token = "Bearer " + PM_User_API_Token.accessToken;
+
+
+                        module.exports.ConnectToContellect((data) => {
+                            if (!data.success) {
+                                console.error(data.data);
+                            }
+                            else {
+                                organizationId = data.data.organizationID
+                                var folderContentTypeMapper = JSON.parse(process.env.folderContentType);
+                                var uri = process.env.contellect_host + ':' + process.env.contellect_frontend_port + '/seach-content/searchContent'
+                                request.post({
+                                    headers: {
+                                        'Authorization': 'Bearer ' + data.data.accessToken
+                                    },
+                                    url: uri,
+                                    body: {
+                                        "organizationId": organizationId,
+                                        "searchObjectPrepared": {
+                                            "objectType": "objectTypeFolder",
+                                            "viewRendation": false,
+                                            "listOfContentTypes": [
+                                                folderContentTypeMapper.folderContentTypeId
+
+                                            ],
+                                            "searchCriteriaList": [
+                                                {
+                                                    "groupName": "condition",
+                                                    "groupFlag": false,
+                                                    "groupOperator": null,
+                                                    "conditionOperator": "And",
+                                                    "field": "Case Number",
+                                                    "isSystemContentType": false,
+                                                    "operator": "Equal",
+                                                    "value": parseInt(resData.CaseNumber),
+                                                    "listName": "",
+                                                    "key": "CaseNumber",
+                                                    "caseSensitive": false,
+                                                    "displayedAs": "textbox",
+                                                    "type": "number"
+                                                }
+                                            ]
+                                        }
+                                    }
+                                    ,
+                                    json: true
+
+                                }, function (err, res, body) {
+                                    if (!err && res.statusCode == 200) {
+
+                                        var uri = process.env.contellect_host + ':' + process.env.contellect_frontend_port + '/seach-content/searchAdvanced/' + body.data + '/' + organizationId
+
+                                        request.get({
+                                            headers: {
+                                                'Authorization': 'Bearer ' + data.data.accessToken
+                                            },
+                                            url: uri
+                                        }, function (err, res, body) {
+                                            if (!err && res.statusCode == 200) {
+                                                var obj = JSON.parse(body);
+                                                folderMetaData = obj.data
+                                                if (obj.success) {
+
+                                                    accessToken = PM_User_API_Token
+                                                    uri = process.env.processmaker_host + '/api/1.0/requests/' + resData.CaseNumber + '/files'
+
+                                                    request.get({
+                                                        headers: {
+                                                            'Authorization': accessToken
+                                                        },
+                                                        url: uri
+                                                    }, function (err, res, body) {
+                                                        if (!err && res.statusCode == 200) {
+                                                            var objBody = JSON.parse(body);
+
+                                                            if (objBody.data.length > 0) {
+
+                                                                var mapper = JSON.parse(process.env.contellect_processmaker_IDs_mapper).find(a => a.process_id === parseInt(resData.processId));
+
+                                                                for (let index = 0; index < objBody.data.length; index++) {
+                                                                    const elementListFiles = objBody.data[index];
+                                                                    icon = elementListFiles.file_name.split('.')
+                                                                    var objFile = {
+                                                                        name: elementListFiles.file_name,
+                                                                        parentId: folderMetaData.resObject[0].id,
+                                                                        path: folderMetaData.resObject[0].path + '/' + elementListFiles.file_name,
+                                                                        type: "file",
+                                                                        treePath: folderMetaData.resObject[0].treePath,
+                                                                        totalSize: 0,
+                                                                        freeSize: 0,
+                                                                        usedSize: 0,
+                                                                        createdBy: resData.userEmail,
+                                                                        createdDate: sysConfig.getCurrentDateTimeUTC(),
+                                                                        contentTypeGroupId: mapper.contentTypeGroupId,
+                                                                        contentTypeId: mapper.contentTypeId,
+                                                                        content: [
+                                                                            {
+                                                                                "fieldId": mapper.caseNumberFieldId,
+                                                                                "displayAs": "",
+                                                                                "ischecked": false,
+                                                                                "isMandatory": false,
+                                                                                "key": "CaseNumber",
+                                                                                "type": "number",
+                                                                                "value": resData.CaseNumber,
+                                                                                "yesOrNo": "",
+                                                                                "atomName": "number",
+                                                                                "listName": ""
+                                                                            },
+                                                                            {
+                                                                                "fieldId": mapper.originFieldId,
+                                                                                "displayAs": "",
+                                                                                "ischecked": false,
+                                                                                "isMandatory": true,
+                                                                                "key": "Origin",
+                                                                                "type": "text",
+                                                                                "value": "ProcessMaker",
+                                                                                "yesOrNo": "",
+                                                                                "atomName": "text",
+                                                                                "listName": ""
+                                                                            },
+                                                                            {
+                                                                                "fieldId": null,
+                                                                                "displayAs": "",
+                                                                                "ischecked": false,
+                                                                                "isMandatory": false,
+                                                                                "key": "name",
+                                                                                "type": "text",
+                                                                                "value": elementListFiles.name,
+                                                                                "yesOrNo": "",
+                                                                                "atomName": "text",
+                                                                                "listName": ""
+                                                                            },
+                                                                            {
+                                                                                "fieldId": null,
+                                                                                "displayAs": "",
+                                                                                "ischecked": false,
+                                                                                "isMandatory": false,
+                                                                                "key": "id",
+                                                                                "type": "text",
+                                                                                "value": "N/A",
+                                                                                "yesOrNo": "",
+                                                                                "atomName": "text",
+                                                                                "listName": ""
+                                                                            },
+                                                                            {
+                                                                                "fieldId": null,
+                                                                                "displayAs": "",
+                                                                                "ischecked": false,
+                                                                                "isMandatory": false,
+                                                                                "key": "type",
+                                                                                "type": "text",
+                                                                                "value": "file",
+                                                                                "yesOrNo": "",
+                                                                                "atomName": "text",
+                                                                                "listName": ""
+                                                                            },
+                                                                            {
+                                                                                "fieldId": null,
+                                                                                "displayAs": "",
+                                                                                "ischecked": false,
+                                                                                "isMandatory": false,
+                                                                                "key": "creation-date",
+                                                                                "type": "text",
+                                                                                "value": sysConfig.getCurrentDateTimeUTC(),
+                                                                                "yesOrNo": "",
+                                                                                "atomName": "text",
+                                                                                "listName": ""
+                                                                            },
+                                                                            {
+                                                                                "fieldId": null,
+                                                                                "displayAs": "",
+                                                                                "ischecked": false,
+                                                                                "isMandatory": false,
+                                                                                "key": "creation-by",
+                                                                                "type": "text",
+                                                                                "value": resData.userEmail,
+                                                                                "yesOrNo": "",
+                                                                                "atomName": "text",
+                                                                                "listName": ""
+                                                                            },
+                                                                            {
+                                                                                "fieldId": null,
+                                                                                "displayAs": "",
+                                                                                "ischecked": false,
+                                                                                "isMandatory": false,
+                                                                                "key": "modification-date",
+                                                                                "type": "text",
+                                                                                "value": sysConfig.getCurrentDateTimeUTC(),
+                                                                                "yesOrNo": "",
+                                                                                "atomName": "text",
+                                                                                "listName": ""
+                                                                            },
+                                                                            {
+                                                                                "fieldId": null,
+                                                                                "displayAs": "",
+                                                                                "ischecked": false,
+                                                                                "isMandatory": false,
+                                                                                "key": "modification-by",
+                                                                                "type": "text",
+                                                                                "value": resData.userEmail,
+                                                                                "yesOrNo": "",
+                                                                                "atomName": "text",
+                                                                                "listName": ""
+                                                                            },
+                                                                            {
+                                                                                "fieldId": null,
+                                                                                "displayAs": "",
+                                                                                "ischecked": false,
+                                                                                "isMandatory": false,
+                                                                                "key": "icon",
+                                                                                "type": "text",
+                                                                                "value": icon[icon.length - 1],
+                                                                                "yesOrNo": "",
+                                                                                "atomName": "text",
+                                                                                "listName": ""
+                                                                            },
+                                                                            {
+                                                                                "fieldId": null,
+                                                                                "displayAs": "",
+                                                                                "ischecked": false,
+                                                                                "isMandatory": false,
+                                                                                "key": "current-size",
+                                                                                "type": "text",
+                                                                                "value": "0.00 ",
+                                                                                "yesOrNo": "",
+                                                                                "atomName": "text",
+                                                                                "listName": ""
+                                                                            },
+                                                                            {
+                                                                                "fieldId": null,
+                                                                                "displayAs": "",
+                                                                                "ischecked": false,
+                                                                                "isMandatory": false,
+                                                                                "key": "current-versions-size",
+                                                                                "type": "text",
+                                                                                "value": "",
+                                                                                "yesOrNo": "",
+                                                                                "atomName": "text",
+                                                                                "listName": ""
+                                                                            },
+                                                                            {
+                                                                                "fieldId": null,
+                                                                                "displayAs": "",
+                                                                                "ischecked": false,
+                                                                                "isMandatory": false,
+                                                                                "key": "content-type-name",
+                                                                                "type": "text",
+                                                                                "value": "Blank",
+                                                                                "yesOrNo": "",
+                                                                                "atomName": "text",
+                                                                                "listName": ""
+                                                                            },
+                                                                            {
+                                                                                "fieldId": null,
+                                                                                "displayAs": "",
+                                                                                "ischecked": false,
+                                                                                "isMandatory": false,
+                                                                                "key": "version-number",
+                                                                                "type": "text",
+                                                                                "value": "",
+                                                                                "yesOrNo": "",
+                                                                                "atomName": "text",
+                                                                                "listName": ""
+                                                                            },
+                                                                            {
+                                                                                "fieldId": null,
+                                                                                "displayAs": "",
+                                                                                "ischecked": false,
+                                                                                "isMandatory": false,
+                                                                                "key": "current-rendition-size",
+                                                                                "type": "text",
+                                                                                "value": "",
+                                                                                "yesOrNo": "",
+                                                                                "atomName": "text",
+                                                                                "listName": ""
+                                                                            },
+                                                                            {
+                                                                                "fieldId": null,
+                                                                                "displayAs": "",
+                                                                                "ischecked": false,
+                                                                                "isMandatory": false,
+                                                                                "key": "extention",
+                                                                                "type": "text",
+                                                                                "value": icon[icon.length - 1],
+                                                                                "yesOrNo": "",
+                                                                                "atomName": "text",
+                                                                                "listName": ""
+                                                                            },
+                                                                            {
+                                                                                "fieldId": null,
+                                                                                "displayAs": "",
+                                                                                "ischecked": false,
+                                                                                "isMandatory": false,
+                                                                                "key": "file_content",
+                                                                                "type": "text",
+                                                                                "value": "",
+                                                                                "yesOrNo": "",
+                                                                                "atomName": "text",
+                                                                                "listName": ""
+                                                                            },
+                                                                            {
+                                                                                "fieldId": null,
+                                                                                "displayAs": null,
+                                                                                "ischecked": false,
+                                                                                "isMandatory": false,
+                                                                                "key": "current-rendition-size",
+                                                                                "type": null,
+                                                                                "value": "",
+                                                                                "yesOrNo": null,
+                                                                                "atomName": null,
+                                                                                "listName": null
+                                                                            },
+                                                                            {
+                                                                                "fieldId": null,
+                                                                                "displayAs": null,
+                                                                                "ischecked": false,
+                                                                                "isMandatory": false,
+                                                                                "key": "version-numbere",
+                                                                                "type": null,
+                                                                                "value": "",
+                                                                                "yesOrNo": null,
+                                                                                "atomName": null,
+                                                                                "listName": null
+                                                                            },
+                                                                            {
+                                                                                "fieldId": null,
+                                                                                "displayAs": null,
+                                                                                "ischecked": false,
+                                                                                "isMandatory": false,
+                                                                                "key": "file_content",
+                                                                                "type": null,
+                                                                                "value": "",
+                                                                                "yesOrNo": null,
+                                                                                "atomName": null,
+                                                                                "listName": null
+                                                                            },
+                                                                            {
+                                                                                "fieldId": null,
+                                                                                "displayAs": null,
+                                                                                "ischecked": false,
+                                                                                "isMandatory": false,
+                                                                                "key": "auto-barcode",
+                                                                                "type": null,
+                                                                                "value": "",
+                                                                                "yesOrNo": null,
+                                                                                "atomName": null,
+                                                                                "listName": null
+                                                                            },
+                                                                            {
+                                                                                "fieldId": null,
+                                                                                "displayAs": null,
+                                                                                "ischecked": false,
+                                                                                "isMandatory": false,
+                                                                                "key": "current-versions-size",
+                                                                                "type": null,
+                                                                                "value": "",
+                                                                                "yesOrNo": null,
+                                                                                "atomName": null,
+                                                                                "listName": null
+                                                                            }
+                                                                        ],
+                                                                        children: []
+                                                                    }
+
+                                                                    for (let i = 0; i < mapper.process_fields.length; i++) {
+                                                                        objFile.content.push(mapper.process_fields[i]);
+                                                                    }
+                                                                    //change number file 
+                                                                    var uri = process.env.processmaker_host + '/api/1.0/files/' + elementListFiles.id + '/contents'
+                                                                    request.get({
+                                                                        url: uri,
+                                                                        headers: {
+                                                                            'Authorization': accessToken
+                                                                        },
+                                                                        encoding: null
+                                                                    }, function (err, res) {
+                                                                        if (err || res.body === "Unauthorized")
+                                                                            return callback(true, err);
+                                                                        else {
+                                                                            fileBin = res.body;
+
+                                                                            var uri = process.env.contellect_host + ':' + process.env.contellect_frontend_port + '/file-structure/uploadFile'
+
+
+                                                                            request.post({
+
+                                                                                headers: {
+                                                                                    "enctype": "multipart/form-data",
+                                                                                    "Accept": "application/json",
+                                                                                    'Authorization': 'Bearer ' + data.data.accessToken
+
+                                                                                },
+                                                                                url: uri,
+                                                                                formData:
+                                                                                {
+                                                                                    'organizationId': organizationId,
+                                                                                    'fileMetadata': JSON.stringify(objFile),
+                                                                                    uploadFile: {
+                                                                                        value: fileBin, // Upload the first file in the multi-part post
+                                                                                        options: {
+                                                                                            filename: elementListFiles.file_name,
+                                                                                            contentType: elementListFiles.mime_type,
+                                                                                        }
+                                                                                    }
+                                                                                },
+                                                                            }, function (err, res, body) {
+                                                                                if (!err && res.statusCode == 200) {
+                                                                                    return callback(false, JSON.parse(body));
+                                                                                }
+                                                                            });
+                                                                        }
+                                                                    });
+                                                                }
+                                                            }
+                                                            else {
+                                                                return callback(true, objBody.data);
+                                                            }
+                                                        }
+                                                    })
+                                                }
+                                                else {
+                                                    return callback(true, obj.data);
+                                                }
+                                            }
+                                        });
+                                    }
+                                    else {
+                                        return callback(true, err);
+                                    }
+                                });
+                            }
+                        })
+                    }
+                })
+            }
+        })
+    }
