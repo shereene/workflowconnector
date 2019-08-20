@@ -1,0 +1,80 @@
+{
+    "_id" : ObjectId("5c758e4c3bc5610a64713205"),
+    "name" : "هيئة التامين",
+    "id" : "00000000-0000-0000-0000-000000000001",
+    "freeSize" : 974617.0572,
+    "totalSize" : 1048576.0,
+    "usedSize" : 73958.9428,
+    "hasSize" : true,
+    "contentTypeId" : "",
+    "createdBy" : "",
+    "createdDate" : ISODate("2019-02-26T19:06:52.197Z"),
+    "path" : "IA",
+    "storageUnit" : "MB",
+    "treePath" : "1",
+    "version" : 0.0,
+    "binaryData" : "",
+    "description" : "هيئة التامين",
+    "fileId" : null,
+    "modifiedDate" : ISODate("2019-02-26T19:06:52.198Z"),
+    "modifiedBy" : "",
+    "contentTypeGroupId" : "",
+    "currentRenditionsSize" : 0.0,
+    "currentVersionsSize" : 0.0,
+    "currentNodeSize" : 0.0,
+    "efficiency" : 1.72328948974609e-07,
+    "type" : "Drive",
+    "allowedDocTypes" : [],
+    "content" : [],
+    "ACP" : {
+        "DACL" : [ 
+            {
+                "objectID" : "devefile@ia.ae",
+                "permissionLevelId" : "5449d5f9-e01c-44d1-a248-3505ea4b942c",
+                "isUser" : true
+            }, 
+            {
+                "objectID" : "00000000-0000-0000-0000-000000000002",
+                "permissionLevelId" : "5449d5f9-e01c-44d1-a248-3505ea4b942c",
+                "isUser" : false
+            }, 
+            {
+                "objectID" : "00000000-0000-0000-0000-000000000004",
+                "permissionLevelId" : "e8d63740-c155-4fbc-80cc-c99678f14ff4",
+                "isUser" : false
+            }, 
+            {
+                "objectID" : "ContellectAdmins",
+                "permissionLevelId" : "5449d5f9-e01c-44d1-a248-3505ea4b942c",
+                "isUser" : false
+            }, 
+            {
+                "objectID" : "ecm_contellect_admin@ia.ae",
+                "permissionLevelId" : "5449d5f9-e01c-44d1-a248-3505ea4b942c",
+                "isUser" : true
+            }, 
+            {
+                "objectID" : "ecm_contellectad@ia.ae",
+                "permissionLevelId" : "16f0751b-e244-41d0-b603-1565cd5e995d",
+                "isUser" : true
+            }
+        ],
+        "IACL" : [],
+        "SHACL" : []
+    },
+    "favouriteUsers" : [],
+    "parentId" : "00000000-0000-0000-0000-000000000000",
+    "children" : [ 
+        "64ba6b2d-7dda-47bf-bfd4-573220b136df", 
+        "d16a1782-3bb2-4c95-8fab-286d120777da", 
+        "ae4f350e-b283-4a22-a135-bccaaa57b4cf", 
+        "b758d729-7f20-40df-b0d2-418d0f64e9c2", 
+        "79ed9608-4eb1-4036-a395-9b8c7e389687", 
+        "5fcf9e1d-c9f0-4a5b-880d-eb15a5328fd7", 
+        "9da51909-379e-4e43-ab15-366264c2a977", 
+        "2fff0e49-68bb-4430-9d02-d3ea21ae43d1", 
+        "7ddbf3df-dc2a-4124-87a7-9c57caff9793", 
+        "9e878a9a-b380-437c-bdac-4523ba506e2c", 
+        "663e653e-8289-4f7d-9860-2002524c6e36"
+    ]
+}
